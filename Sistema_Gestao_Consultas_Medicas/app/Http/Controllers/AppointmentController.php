@@ -1,0 +1,93 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Appointment;
+use Illuminate\Http\Request;
+
+class AppointmentController extends Controller
+{
+    public function index()
+    {
+        return response()->json(Appointment::all(), 200);
+    }
+
+    public function show($id)
+    {
+        try {
+            $appointment = Appointment::findOrFail($id);
+            return response()->json($appointment, 200);
+        } catch (ModelNotFoundException $e) {
+            return response()->json(["error" => "Appointment not found"], 404);
+        }
+    }
+
+    public function store(Request $request)
+    {
+        $validatedData = $request->validate([
+            'doctor_id' => 'required|exists:table_doctors,id',
+            'patient_id' => 'required|exists:table_patients,id',
+            'room_id' => 'required|exists:table_rooms,id',
+            'schedule_id' => 'required|exists:table_schedules,id',
+            'date_time' => 'required|date_format:Y-m-d H:i:s',
+            'status' => 'required|in:scheduled,completed,cancelled',
+        ]);
+
+        $appointment = Appointment::create($validatedData);
+
+        return response()->json(["message" => "Appointment created successfully", "appointment" => $appointment], 201);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $appointment = Appointment::findOrFail($id);
+
+        $validatedData = $request->validate([
+            'doctor_id' => 'sometimes|required|exists:table_doctors,id',
+            'patient_id' => 'sometimes|required|exists:table_patients,id',
+            'room_id' => 'sometimes|required|exists:table_rooms,id',
+            'schedule_id' => 'sometimes|required|exists:table_schedules,id',
+            'date_time' => 'sometimes|required|date_format:Y-m-d H:i:s',
+            'status' => 'sometimes|required|in:scheduled,completed,cancelled',
+        ]);
+
+        $appointment->update($validatedData);
+
+        try {
+            $appointment = Appointment::findOrFail($id);
+            $appointment->update($validatedData);
+            return response()->json(["message" => "Appointment updated successfully", "appointment" => $appointment], 200);
+        } catch (ModelNotFoundException $e) {
+            return response()->json(["error" => "Appointment not found"], 404);
+        }
+    }
+
+    public function destroy($id)
+    {
+        $appointment = Appointment::findOrFail($id);
+        $appointment->delete();
+
+        try {
+            $appointment = Appointment::findOrFail($id);
+            $appointment->delete();
+            return response()->json(["message" => "Appointment deleted successfully"], 204);
+        } catch (ModelNotFoundException $e) {
+            return response()->json(["error" => "Appointment not found"], 404);
+        }
+    }
+
+    public function getByPatient($patient_id)
+    {
+        $appointments = Appointment::where('patient_id', $patient_id)->get();
+
+        if ($appointments->isEmpty()) {
+            return response()->json(['message' => 'No appointments found for this patient.'], 404);
+        }
+
+        $appointments = Appointment::where('patient_id', $patient_id)->get();
+        if ($appointments->isEmpty()) {
+            return response()->json(['message' => 'No appointments found for this patient.'], 404);
+        }
+        return response()->json($appointments, 200);
+    }
+}
